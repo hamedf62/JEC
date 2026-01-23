@@ -1,0 +1,59 @@
+services:
+  # Redis Cache Service
+  redis:
+    image: redis:7-alpine
+    container_name: jec-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jec-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Streamlit Dashboard Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jec-streamlit
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./app:/app/app:ro
+      - ./data:/app/data:rw
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - jec-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  jec-network:
+    driver: bridge
