@@ -6,12 +6,15 @@ This is an **enterprise-grade multi-file data analysis system** that demonstrate
 
 ### Key Features
 - ✅ Multi-file analysis (3 Excel files: Payable, Invoices, Performa)
+- ✅ SQLite database with SQLAlchemy ORM
+- ✅ Automated Excel to CSV and DB migration
 - ✅ Professional class-based architecture (DataManager, DataAnalyzer, CacheManager)
 - ✅ Redis caching with in-memory fallback
 - ✅ Docker containerization with docker-compose
 - ✅ Interactive Streamlit dashboard with Plotly visualizations
 - ✅ Production-ready error handling and logging
 - ✅ Modular, testable, scalable codebase
+- ✅ Package management with `uv`
 
 ---
 
@@ -92,14 +95,11 @@ docker-compose up --build
 # Navigate to project
 cd /Users/hamed/Documents/myprojects/JEC
 
-# Activate environment
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies using uv
+uv sync
 
 # Run dashboard
-streamlit run app/streamlit_dashboard.py
+uv run streamlit run app/streamlit_dashboard.py
 ```
 
 ### Option 3: With Redis (Local)

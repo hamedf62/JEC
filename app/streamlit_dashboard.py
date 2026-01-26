@@ -56,24 +56,45 @@ st.markdown(
         text-align: right;
     }
     
+    /* Fix for sidebar and metric alignment */
+    [data-testid="stSidebar"] {
+        direction: rtl;
+    }
+    
     .stMetric {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    [data-testid="stMetricValue"] {
+        font-size: 1.8rem !important;
         direction: ltr;
         text-align: left;
     }
     
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-        color: white;
-        margin: 0.5rem 0;
+    /* Fix for overlapping text in expanders */
+    div[data-testid="stExpander"] svg {
+        order: 1;
+        margin-left: 10px;
     }
-    .info-box {
-        background-color: #f0f2f6;
+    
+    .metric-card {
+        background: #f8f9fa;
         padding: 1rem;
         border-radius: 0.5rem;
-        border-left: 4px solid #667eea;
-        margin: 1rem 0;
+        border-right: 5px solid #4e73df;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        margin: 0.5rem 0;
+        color: #3a3b45;
+    }
+    .metric-card h3 {
+        font-size: 0.9rem;
+        color: #4e73df;
+        margin-bottom: 0.5rem;
+    }
+    .metric-card h2 {
+        font-size: 1.4rem;
+        margin: 0;
     }
 </style>
 """,
@@ -391,6 +412,645 @@ def render_cache_info(cache_manager: CacheManager):
             st.write(f"**{key}:** {value}")
 
 
+def render_cash_flow(analyzer: DataAnalyzer):
+    """Render comprehensive cash flow analysis."""
+    with st.spinner("تحلیل جریان وجوه نقد..."):
+        result = analyzer.analyze(FileType.INVOICES, AnalysisType.CASH_FLOW)
+        if result and result.data:
+            data = result.data
+            st.header("💵 تحلیل جریان وجوه نقد")
+
+            # KPI Cards
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric(
+                    "موقعیت فعلی وجه نقد",
+                    f"{data.get('current_position', 0):,.0f} تومان",
+                    delta=None,
+                    delta_color="normal",
+                )
+            with col2:
+                st.metric("کل دریافتی‌ها", f"{data.get('total_income', 0):,.0f} تومان")
+            with col3:
+                st.metric("کل پرداختی‌ها", f"{data.get('total_outcome', 0):,.0f} تومان")
+            with col4:
+                net_flow = data.get("net_cash_flow", 0)
+                st.metric(
+                    "جریان خالص",
+                    f"{net_flow:,.0f} تومان",
+                    delta=None,
+                    delta_color="normal" if net_flow >= 0 else "inverse",
+                )
+
+            st.markdown("---")
+
+            # Cash flow chart
+            if "daily_flow" in data and data["daily_flow"]:
+                df_flow = pd.DataFrame(data["daily_flow"])
+
+                col_a, col_b = st.columns(2)
+
+                with col_a:
+                    st.write("#### روند جریان نقدی روزانه")
+                    fig = go.Figure()
+                    fig.add_trace(
+                        go.Scatter(
+                            x=df_flow["jalali_date"],
+                            y=df_flow["cumulative"],
+                            mode="lines+markers",
+                            name="موقعیت انباشته",
+                            line=dict(color="blue", width=3),
+                        )
+                    )
+                    fig.update_layout(
+                        xaxis_title="تاریخ",
+                        yaxis_title="مبلغ (تومان)",
+                        hovermode="x unified",
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                with col_b:
+                    st.write("#### خلاصه بر اساس نوع تراکنش")
+                    if "type_summary" in data:
+                        df_summary = pd.DataFrame(data["type_summary"])
+                        st.dataframe(df_summary, use_container_width=True)
+
+            # Detailed transactions
+            with st.expander("مشاهده تراکنش‌های تفصیلی"):
+                if "detailed_transactions" in data:
+                    df_details = pd.DataFrame(data["detailed_transactions"])
+                    st.dataframe(df_details, use_container_width=True)
+
+
+def render_accounts_aging(analyzer: DataAnalyzer):
+    """Render accounts aging analysis."""
+    with st.spinner("تحلیل سنجش سررسید حساب‌ها..."):
+        result = analyzer.analyze(FileType.PAYABLE, AnalysisType.ACCOUNTS_AGING)
+        if result and result.data:
+            data = result.data
+            st.header("⏰ سنجش سررسید حساب‌ها (Aging Report)")
+
+            st.info(
+                f"📅 تاریخ تحلیل: {data.get('analysis_jalali_date', data.get('analysis_date', 'N/A'))}"
+            )
+
+            # Payables vs Receivables
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("🔴 بدهی‌ها (پرداختی)")
+                payables = data.get("payables", {})
+                st.metric("کل بدهی", f"{payables.get('total', 0):,.0f} تومان")
+                st.metric(
+                    "معوقه",
+                    f"{payables.get('overdue', 0):,.0f} تومان",
+                    delta=None,
+                    delta_color="inverse",
+                )
+
+                # Aging buckets chart
+                buckets = payables.get("buckets", {})
+                df_buckets = pd.DataFrame(
+                    {"دوره": list(buckets.keys()), "مبلغ": list(buckets.values())}
+                )
+                fig = px.bar(
+                    df_buckets,
+                    x="دوره",
+                    y="مبلغ",
+                    title="توزیع سنی بدهی‌ها",
+                    color="مبلغ",
+                    color_continuous_scale="Reds",
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.subheader("🟢 طلب‌ها (دریافتی)")
+                receivables = data.get("receivables", {})
+                st.metric("کل طلب", f"{receivables.get('total', 0):,.0f} تومان")
+                st.metric(
+                    "معوقه",
+                    f"{receivables.get('overdue', 0):,.0f} تومان",
+                    delta=None,
+                    delta_color="inverse",
+                )
+
+                # Aging buckets chart
+                buckets = receivables.get("buckets", {})
+                df_buckets = pd.DataFrame(
+                    {"دوره": list(buckets.keys()), "مبلغ": list(buckets.values())}
+                )
+                fig = px.bar(
+                    df_buckets,
+                    x="دوره",
+                    y="مبلغ",
+                    title="توزیع سنی طلب‌ها",
+                    color="مبلغ",
+                    color_continuous_scale="Greens",
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("---")
+
+            # Net position
+            net_pos = data.get("net_position", 0)
+            st.metric(
+                "موقعیت خالص (طلب - بدهی)",
+                f"{net_pos:,.0f} تومان",
+                delta=None,
+                delta_color="normal" if net_pos >= 0 else "inverse",
+            )
+
+
+def render_profitability(analyzer: DataAnalyzer):
+    """Render profitability analysis."""
+    with st.spinner("تحلیل سودآوری..."):
+        result = analyzer.analyze(
+            FileType.INVOICES, AnalysisType.PROFITABILITY_ANALYSIS
+        )
+        if result and result.data:
+            data = result.data
+            st.header("📈 تحلیل سودآوری و درآمد")
+
+            # Key metrics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("درآمد کل", f"{data.get('total_revenue', 0):,.0f} تومان")
+            with col2:
+                st.metric("هزینه‌ها", f"{data.get('total_costs', 0):,.0f} تومان")
+            with col3:
+                gross_profit = data.get("gross_profit", 0)
+                st.metric(
+                    "سود ناخالص",
+                    f"{gross_profit:,.0f} تومان",
+                    delta=None,
+                    delta_color="normal" if gross_profit >= 0 else "inverse",
+                )
+            with col4:
+                net_profit = data.get("net_profit", 0)
+                st.metric(
+                    "سود خالص",
+                    f"{net_profit:,.0f} تومان",
+                    delta=None,
+                    delta_color="normal" if net_profit >= 0 else "inverse",
+                )
+
+            # Margins
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.metric("حاشیه سود ناخالص", f"{data.get('gross_margin', 0):.2f}%")
+            with col_b:
+                st.metric("حاشیه سود خالص", f"{data.get('net_margin', 0):.2f}%")
+
+            st.markdown("---")
+
+            # Charts
+            col_chart1, col_chart2 = st.columns(2)
+
+            with col_chart1:
+                st.write("#### ده مشتری برتر بر اساس درآمد")
+                if "customer_revenue" in data and data["customer_revenue"]:
+                    df_customers = pd.DataFrame(data["customer_revenue"])
+                    fig = px.bar(
+                        df_customers,
+                        x="revenue",
+                        y="customer",
+                        orientation="h",
+                        title="درآمد به تفکیک مشتری",
+                        labels={"revenue": "درآمد", "customer": "مشتری"},
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+            with col_chart2:
+                st.write("#### روند درآمد ماهانه")
+                if "monthly_revenue" in data and data["monthly_revenue"]:
+                    df_monthly = pd.DataFrame(data["monthly_revenue"])
+                    fig = px.line(
+                        df_monthly,
+                        x="month",
+                        y="sum",
+                        title="روند درآمد ماهانه",
+                        markers=True,
+                        labels={"sum": "درآمد", "month": "ماه"},
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+
+def render_forecast(analyzer: DataAnalyzer):
+    """Render cash flow forecast."""
+    with st.spinner("پیش‌بینی وضعیت مالی..."):
+        forecast_days = st.slider("دوره پیش‌بینی (روز)", 30, 180, 90, step=30)
+
+        result = analyzer.analyze(
+            FileType.PAYABLE, AnalysisType.FORECAST, forecast_days=forecast_days
+        )
+        if result and result.data:
+            data = result.data
+            st.header("🔮 پیش‌بینی جریان نقدی")
+
+            if "error" not in data:
+                st.info(
+                    f"📅 از تاریخ {data.get('current_jalali_date', data.get('current_date'))} تا {data.get('forecast_jalali_date', data.get('forecast_date'))}"
+                )
+
+                # Summary metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric(
+                        "کل دریافتی‌های آینده",
+                        f"{data.get('total_incoming', 0):,.0f} تومان",
+                    )
+                with col2:
+                    st.metric(
+                        "کل پرداختی‌های آینده",
+                        f"{data.get('total_outgoing', 0):,.0f} تومان",
+                    )
+                with col3:
+                    net = data.get("net_forecast", 0)
+                    st.metric(
+                        "خالص پیش‌بینی",
+                        f"{net:,.0f} تومان",
+                        delta=None,
+                        delta_color="normal" if net >= 0 else "inverse",
+                    )
+
+                # Min/Max positions
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.metric(
+                        "حداقل موقعیت نقدی",
+                        f"{data.get('min_position', 0):,.0f} تومان",
+                        help=f"در تاریخ {data.get('min_position_date', 'N/A')}",
+                    )
+                with col_b:
+                    st.metric(
+                        "حداکثر موقعیت نقدی",
+                        f"{data.get('max_position', 0):,.0f} تومان",
+                        help=f"در تاریخ {data.get('max_position_date', 'N/A')}",
+                    )
+
+                st.markdown("---")
+
+                # Forecast chart
+                if "daily_forecast" in data and data["daily_forecast"]:
+                    df_forecast = pd.DataFrame(data["daily_forecast"])
+
+                    fig = go.Figure()
+
+                    # Daily net flow
+                    fig.add_trace(
+                        go.Bar(
+                            x=df_forecast["jalali_date"],
+                            y=df_forecast["amount"],
+                            name="جریان خالص روزانه",
+                            marker_color="lightblue",
+                        )
+                    )
+
+                    # Cumulative position
+                    fig.add_trace(
+                        go.Scatter(
+                            x=df_forecast["jalali_date"],
+                            y=df_forecast["cumulative"],
+                            name="موقعیت انباشته",
+                            mode="lines+markers",
+                            line=dict(color="red", width=3),
+                            yaxis="y2",
+                        )
+                    )
+
+                    fig.update_layout(
+                        title="پیش‌بینی جریان نقدی روزانه",
+                        xaxis_title="تاریخ",
+                        yaxis_title="جریان خالص (تومان)",
+                        yaxis2=dict(
+                            title="موقعیت انباشته (تومان)", overlaying="y", side="right"
+                        ),
+                        hovermode="x unified",
+                        height=500,
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                # Weekly forecast
+                with st.expander("پیش‌بینی هفتگی"):
+                    if "weekly_forecast" in data:
+                        df_weekly = pd.DataFrame(data["weekly_forecast"])
+                        st.dataframe(df_weekly, use_container_width=True)
+
+                # Detailed transactions
+                with st.expander("تراکنش‌های آینده"):
+                    if "detailed_transactions" in data:
+                        df_trans = pd.DataFrame(data["detailed_transactions"])
+                        st.dataframe(df_trans, use_container_width=True)
+            else:
+                st.warning(data["error"])
+
+
+def render_executive_summary(analyzer: DataAnalyzer):
+    """Render executive summary dashboard with key KPIs and alerts."""
+    st.header("🎯 داشبورد مدیریتی - خلاصه اجرایی")
+
+    # Top KPI Row
+    with st.spinner("در حال تهیه گزارش مدیریتی..."):
+        # Get all required analyses
+        cash_flow = analyzer.analyze(FileType.INVOICES, AnalysisType.CASH_FLOW)
+        aging = analyzer.analyze(FileType.PAYABLE, AnalysisType.ACCOUNTS_AGING)
+        profitability = analyzer.analyze(
+            FileType.INVOICES, AnalysisType.PROFITABILITY_ANALYSIS
+        )
+        integrated = analyzer.analyze(FileType.INVOICES, AnalysisType.INTEGRATED_TREND)
+
+        # 1. High Level Metrics
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+
+        with kpi1:
+            revenue = profitability.data.get("total_revenue", 0) if profitability else 0
+            st.metric(
+                "فروش کل نهایی", f"{revenue:,.0f}", help="مجموع فاکتورهای فروش صادر شده"
+            )
+
+        with kpi2:
+            current_pos = cash_flow.data.get("current_position", 0) if cash_flow else 0
+            st.metric("موقعیت نقدینگی", f"{current_pos:,.0f}", delta=None)
+
+        with kpi3:
+            net_profit = profitability.data.get("net_profit", 0) if profitability else 0
+            st.metric(
+                "سود خالص تخمینی",
+                f"{net_profit:,.0f}",
+                help="فروش نهایی منهای مجموع اسناد پرداختنی",
+            )
+
+        with kpi4:
+            overdue = aging.data.get("total_overdue_payables", 0) if aging else 0
+            st.metric(
+                "بدهی معوقه", f"{overdue:,.0f}", delta=None, delta_color="inverse"
+            )
+
+        st.markdown("---")
+
+        # 2. Main Trend Graph (Integrated Past & Future)
+        st.subheader("📈 روند جامع عملکرد مالی (گذشته و آینده)")
+        if integrated and "trend_data" in integrated.data:
+            df_trend = pd.DataFrame(integrated.data["trend_data"])
+
+            fig = go.Figure()
+
+            # Add bars for different categories
+            for col in integrated.data["types"]:
+                color = (
+                    "#00cc96"
+                    if "دریافتی" in col or "فروش" in col
+                    else ("#ef553b" if "پرداختی" in col else "#636efa")
+                )
+                fig.add_trace(
+                    go.Bar(
+                        x=df_trend["month_str"],
+                        y=df_trend[col],
+                        name=col,
+                        marker_color=color,
+                        opacity=0.7,
+                    )
+                )
+
+            # Add Cumulative Cash Line
+            if integrated.data.get("cumulative_col"):
+                cum_col = integrated.data["cumulative_col"]
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_trend["month_str"],
+                        y=df_trend[cum_col],
+                        name="موقعیت نقدینگی نهایی",
+                        line=dict(color="black", width=4, dash="dot"),
+                        yaxis="y2",
+                    )
+                )
+
+            # Add Zero Line for y2
+            fig.add_shape(
+                type="line",
+                line=dict(color="red", width=2, dash="solid"),
+                x0=0,
+                x1=1,
+                xref="paper",
+                y0=0,
+                y1=0,
+                yref="y2",
+            )
+
+            fig.update_layout(
+                title="تراکنش‌های ماهانه و پیش‌بینی نقدینگی",
+                xaxis_title="ماه",
+                yaxis_title="مبلغ هر تراکنش (تومان)",
+                yaxis2=dict(
+                    title="موقعیت نقدینگی انباشته (تومان)",
+                    overlaying="y",
+                    side="right",
+                    showgrid=False,
+                ),
+                legend=dict(
+                    orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
+                ),
+                barmode="group",
+                hovermode="x unified",
+                height=550,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.info(
+                "💡 خط هشداری قرمز نشان‌دهنده نقطه صفر نقدینگی است. قرارگیری خط مشکی در زیر آن به معنای پیش‌بینی زمان کمبود نقدینگی است."
+            )
+
+        st.markdown("---")
+
+        # 3. Alerts and Summaries
+        col_alert, col_summary = st.columns([1, 1])
+
+        with col_alert:
+            st.subheader("⚠️ وضعیت ریسک و هشدارها")
+            alerts = []
+            if overdue > 0:
+                alerts.append(
+                    (
+                        "error",
+                        f"بدهی معوقه به مبلغ {overdue:,.0f} تومان نیازمند تسویه است.",
+                    )
+                )
+
+            # Check for future negative positions in the integrated trend
+            if integrated and "trend_data" in integrated.data:
+                df_trend = pd.DataFrame(integrated.data["trend_data"])
+                if "موقعیت نقدی انباشته" in df_trend.columns:
+                    negative_months = df_trend[df_trend["موقعیت نقدی انباشته"] < 0][
+                        "month_str"
+                    ].tolist()
+                    if negative_months:
+                        alerts.append(
+                            (
+                                "error",
+                                f"هشدار نقدینگی: در ماه‌های {', '.join(negative_months)} پیش‌بینی کمبود وجه نقد وجود دارد.",
+                            )
+                        )
+
+            if cash_flow and cash_flow.data.get("net_cash_flow", 0) < 0:
+                alerts.append(
+                    ("warning", "جریان نقد عملیاتی در دوره اخیر منفی بوده است.")
+                )
+
+            if profitability and profitability.data.get("net_margin", 0) < 15:
+                alerts.append(
+                    (
+                        "info",
+                        f"حاشیه سود خالص {profitability.data.get('net_margin', 0):.1f}% است.",
+                    )
+                )
+
+            if not alerts:
+                st.success("✅ تمامی شاخص‌های کلیدی در وضعیت سبز قرار دارند.")
+            else:
+                for level, msg in alerts:
+                    if level == "error":
+                        st.error(msg)
+                    elif level == "warning":
+                        st.warning(msg)
+                    else:
+                        st.info(msg)
+
+        with col_summary:
+            st.subheader("📋 خلاصه وضعیت")
+            if profitability and "customer_revenue" in profitability.data:
+                df_cust = pd.DataFrame(profitability.data["customer_revenue"]).head(5)
+                st.write("**مشتریان استراتژیک (بر اساس درآمد):**")
+                for _, row in df_cust.iterrows():
+                    st.write(f"- {row['customer']}: {row['revenue']:,.0f} تومان")
+
+
+def render_cache_info(cache_manager: CacheManager):
+    """Render cache information."""
+    with st.sidebar.expander("💾 وضعیت حافظه موقت"):
+        info = cache_manager.get_cache_info()
+        for key, value in info.items():
+            st.write(f"**{key}:** {value}")
+
+
+def render_accounts_aging_single(analyzer: DataAnalyzer, file_type: FileType):
+    """Render aging analysis for a single file type (Receivable or Payable)."""
+    with st.spinner(f"تحلیل سررسید {file_type.label}..."):
+        result = analyzer.analyze(file_type, AnalysisType.ACCOUNTS_AGING)
+        if result and result.data:
+            data = result.data
+            key = "payables" if file_type == FileType.PAYABLE else "receivables"
+            aging_data = data.get(key, {})
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("کل مبلغ", f"{aging_data.get('total', 0):,.0f} تومان")
+            with col2:
+                st.metric(
+                    "مبلغ معوقه (گذشته)",
+                    f"{aging_data.get('overdue', 0):,.0f} تومان",
+                    delta_color="inverse",
+                )
+
+            # Buckets
+            buckets = aging_data.get("buckets", {})
+            if buckets:
+                df_buckets = pd.DataFrame(
+                    {"بازه زمانی": list(buckets.keys()), "مبلغ": list(buckets.values())}
+                )
+                fig = px.bar(
+                    df_buckets,
+                    x="بازه زمانی",
+                    y="مبلغ",
+                    title=f"توزیع سررسید {file_type.label}",
+                    color="مبلغ",
+                    color_continuous_scale="Reds" if key == "payables" else "Greens",
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+
+def render_sales_tab(analyzer: DataAnalyzer):
+    """Render the Sales tab combining Invoices and Performas."""
+    st.header("📈 مدیریت فروش و پیش‌فاکتورها")
+    
+    tab_inv, tab_perf = st.tabs(["فاکتورهای نهایی (Income)", "پیش‌فاکتورها (Pipeline)"])
+    
+    with tab_inv:
+        st.subheader("📊 فاکتورهای فروش (درآینده محقق شده)")
+        render_metrics(analyzer, FileType.INVOICES)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            render_profitability(analyzer)
+        with col2:
+            render_customer_loyalty(analyzer, FileType.INVOICES)
+            
+        st.markdown("---")
+        render_daily_breakdown(analyzer, FileType.INVOICES)
+        
+    with tab_perf:
+        st.subheader("📝 پیش‌فاکتورهای صادر شده")
+        render_metrics(analyzer, FileType.PERFORMA)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            render_on_time_payment(analyzer)
+        with col2:
+            render_top_beneficiaries(analyzer, FileType.PERFORMA)
+            
+        st.markdown("---")
+        render_daily_breakdown(analyzer, FileType.PERFORMA)
+
+
+def render_debts_tab(analyzer: DataAnalyzer):
+    """Render the Debts (Payables) tab."""
+    st.header("📤 مدیریت بدهی‌ها و اسناد پرداختنی")
+    
+    render_metrics(analyzer, FileType.PAYABLE)
+    st.markdown("---")
+    
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        render_accounts_aging_single(analyzer, FileType.PAYABLE)
+    with col2:
+        st.subheader("⚠️ چک‌های معوقه")
+        # Custom logic for overdue payables
+        result = analyzer.analyze(FileType.PAYABLE, AnalysisType.ACCOUNTS_AGING)
+        if result and result.data:
+            overdue = result.data.get("payables", {}).get("overdue", 0)
+            if overdue > 0:
+                st.error(f"مبلغ {overdue:,.0f} تومان از تعهدات شما معوق شده است.")
+            else:
+                st.success("تمامی تعهدات در جریان یا آینده هستند.")
+                
+    st.markdown("---")
+    render_daily_breakdown(analyzer, FileType.PAYABLE)
+    render_top_beneficiaries(analyzer, FileType.PAYABLE)
+
+
+def render_receivables_tab(analyzer: DataAnalyzer):
+    """Render the Receivables tab."""
+    st.header("📥 مدیریت مطالبات و اسناد دریافتی")
+    
+    render_metrics(analyzer, FileType.RECEIVABLE)
+    st.markdown("---")
+    
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        render_accounts_aging_single(analyzer, FileType.RECEIVABLE)
+    with col2:
+        st.subheader("⚠️ مطالبات معوقه")
+        result = analyzer.analyze(FileType.RECEIVABLE, AnalysisType.ACCOUNTS_AGING)
+        if result and result.data:
+            overdue = result.data.get("receivables", {}).get("overdue", 0)
+            if overdue > 0:
+                st.warning(f"مبلغ {overdue:,.0f} تومان از وصولی‌ها معوق شده است.")
+            else:
+                st.success("تمامی وصولی‌ها در جریان یا تایید شده‌اند.")
+
+    st.markdown("---")
+    render_daily_breakdown(analyzer, FileType.RECEIVABLE)
+    render_top_beneficiaries(analyzer, FileType.RECEIVABLE)
+
+
 def main():
     """Main application entry point."""
 
@@ -400,93 +1060,62 @@ def main():
     # Sidebar configuration
     with st.sidebar:
         st.title("⚙️ تنظیمات")
-
         st.markdown("---")
-        st.subheader("عملیات")
-
+        
         # File operations
-        if st.button("🔄 بارگذاری مجدد فایل‌ها"):
+        if st.button("🔄 بارگذاری مجدد فایل‌ها", use_container_width=True):
             data_manager.load_all_files(force_reload=True)
             st.success("فایل‌ها مجدداً بارگذاری شدند")
 
-        if st.button("🗑️ حذف حافظه موقت"):
+        if st.button("🗑️ حذف حافظه موقت", use_container_width=True):
             cache_manager.clear()
             st.success("حافظه موقت پاک شد")
 
         st.markdown("---")
         render_cache_info(cache_manager)
-
+        
         st.markdown("---")
-        st.subheader("درباره سیستم")
-        st.info(
-            f"""
-            **سیستم تحلیل داده‌های مالی {PROJECT_NAME}**
-            
-            - تحلیل خودکار پیش‌فاکتور و فاکتور
-            - محاسبه نرخ خوش‌قولی مشتریان
-            - مدیریت اسناد پرداختنی (چک)
-            - نمایش مبالغ به **تومان**
-        """
-        )
+        st.info("📊 داشبورد نقدینگی JEC")
 
     # Main header
-    st.title(f"📊 سیستم مدیریت و تحلیل داده‌های مالی {PROJECT_NAME}")
-    st.markdown("گزارشات پیشرفته مدیریتی و تحلیل هوشمند داده‌های فروش و پرداخت")
+    st.title(f"📊 سامانه تحلیل مالی و نقدینگی {PROJECT_COMPANY}")
+    
+    # Load data
+    with st.spinner("در حال بارگذاری..."):
+        data_manager.load_all_files()
 
-    # Load all files first
-    with st.spinner("در حال بارگذاری داده‌ها..."):
-        files = data_manager.load_all_files()
-        if not files:
-            st.error("❌ فایلی یافت نشد!")
-            st.stop()
-
-    st.success(f"✅ {len(files)} فایل با موفقیت بارگذاری شد")
-    st.markdown("---")
-
-    # App sections: Reports vs File Analysis
-    app_mode = st.radio("انتخاب بخش:", ["گزارش مدیریتی", "تحلیل تفصیلی فایل‌ها"])
-
-    if app_mode == "گزارش مدیریتی":
-        render_advanced_report(analyzer)
+    # Main Tabs
+    main_tabs = st.tabs([
+        "🏠 داشبورد جامع (نقدینگی)",
+        "📈 گزارش فروش",
+        "📤 بدهی‌ها (پرداختنی)",
+        "📥 مطالبات (دریافتی)",
+        "🔍 کاوش داده"
+    ])
+    
+    with main_tabs[0]:
+        render_executive_summary(analyzer)
         st.markdown("---")
-        render_on_time_payment(analyzer)
-    else:
-        # Create tabs for each file type
-        tabs = st.tabs([f.label for f in FileType if f in files])
-
-        for idx, file_type in enumerate([f for f in FileType if f in files]):
-            with tabs[idx]:
-                st.header(f"📈 تحلیل {file_type.label}")
-
-                # Metrics
-                render_metrics(analyzer, file_type)
-                st.markdown("---")
-
-                # Analysis tabs
-                analysis_tabs = st.tabs(
-                    [
-                        "تجزیه کالبدی",
-                        "روند انباشته",
-                        "ذینفعان برتر",
-                        "وفاداری مشتریان",
-                        "اطلاعات فایل",
-                    ]
-                )
-
-                with analysis_tabs[0]:
-                    render_daily_breakdown(analyzer, file_type)
-
-                with analysis_tabs[1]:
-                    render_cumulative_analysis(analyzer, file_type)
-
-                with analysis_tabs[2]:
-                    render_top_beneficiaries(analyzer, file_type)
-
-                with analysis_tabs[3]:
-                    render_customer_loyalty(analyzer, file_type)
-
-                with analysis_tabs[4]:
-                    render_file_info(data_manager, file_type)
+        render_cash_flow(analyzer)
+        
+    with main_tabs[1]:
+        render_sales_tab(analyzer)
+        
+    with main_tabs[2]:
+        render_debts_tab(analyzer)
+        
+    with main_tabs[3]:
+        render_receivables_tab(analyzer)
+        
+    with main_tabs[4]:
+        st.subheader("🔍 جستجو و فیلتر پیشرفته داده‌ها")
+        file_choice = st.selectbox("انتخاب نوع داده:", [f.label for f in FileType])
+        target_file = next(f for f in FileType if f.label == file_choice)
+        
+        df = data_manager.get_dataframe(target_file)
+        if df is not None:
+            st.dataframe(df, use_container_width=True)
+            render_file_info(data_manager, target_file)
 
 
 if __name__ == "__main__":

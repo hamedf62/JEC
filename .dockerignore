@@ -1,21 +1,66 @@
+# Version control
 .git
-.gitignore
-__pycache__
-*.pyc
-*.pyo
-*.egg-info
+.github
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv
+venv
+ENV
+
+# Testing/Coverage
 .pytest_cache
 .coverage
 htmlcov
-dist
-build
+.tox
+.nox
+
+# Environment variables
 .env
-.venv
-venv
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
 .DS_Store
-*.log
-.idea
-.vscode
-.streamlit
-node_modules
-npm-debug.log
+Thumbs.db
+
+# Documentation and project config (Not needed in image)
+ARCHITECTURE.md
+INSTRUCTIONS.md
+README.md
+run.sh
+pyproject.toml
+uv.lock
+docker-compose.yml
+Dockerfile
+.dockerignore
+.gitignore
+.python-version
+
+# Data temporary files
+data/*.tmp
+data/~$*

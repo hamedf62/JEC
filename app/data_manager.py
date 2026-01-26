@@ -4,45 +4,62 @@ Manages loading, parsing, and caching of Excel data.
 """
 
 import logging
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, List
 import pandas as pd
 from datetime import datetime
+from sqlalchemy.orm import Session
 
-from app.models import FileType, FileConfig
+from app.models import (
+    FileType,
+    FileConfig,
+    DBPayable,
+    DBReceivable,
+    DBInvoice,
+    DBPerforma,
+)
 from app.cache import CacheManager
+from app.database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
 
 class DataManager:
-    """Manages data loading and preprocessing from Excel files."""
+    """Manages data loading and preprocessing from SQLite database."""
 
     # Configuration for each file type
     FILE_CONFIGS = {
         FileType.PAYABLE: FileConfig(
             file_type=FileType.PAYABLE,
-            filepath="data/Payable.xlsx",
-            sheet_index=0,
-            header_row=1,
+            filepath="data/csv/payable.csv",
             description="Payable Cheques Analysis",
-            required_columns=["بستانکار", "تاریخ سررسید"],
+            required_columns=["amount", "due_date"],
+        ),
+        FileType.RECEIVABLE: FileConfig(
+            file_type=FileType.RECEIVABLE,
+            filepath="data/csv/receivable.csv",
+            description="Accounts Receivable Analysis",
+            required_columns=["amount", "due_date"],
         ),
         FileType.INVOICES: FileConfig(
             file_type=FileType.INVOICES,
-            filepath="data/invoices.xlsx",
-            sheet_index=0,
-            header_row=1,
+            filepath="data/csv/invoices.csv",
             description="Invoices Analysis",
-            required_columns=[],
+            required_columns=["total_amount", "invoice_date"],
         ),
         FileType.PERFORMA: FileConfig(
             file_type=FileType.PERFORMA,
-            filepath="data/performa.xlsx",
-            sheet_index=0,
-            header_row=0,
+            filepath="data/csv/performa.csv",
             description="Performa Analysis",
-            required_columns=[],
+            required_columns=["amount", "performa_date"],
         ),
+    }
+
+    # Mapping FileType to DB Models
+    MODEL_MAP = {
+        FileType.PAYABLE: DBPayable,
+        FileType.RECEIVABLE: DBReceivable,
+        FileType.INVOICES: DBInvoice,
+        FileType.PERFORMA: DBPerforma,
     }
 
     def __init__(self, cache_manager: Optional[CacheManager] = None):
@@ -59,56 +76,47 @@ class DataManager:
         self, file_type: FileType, force_reload: bool = False
     ) -> Optional[pd.DataFrame]:
         """
-        Load Excel file with caching.
+        Load data from SQLite database with caching.
 
         Args:
-            file_type: Type of file to load
+            file_type: Type of data to load
             force_reload: Force reload even if cached
 
         Returns:
             DataFrame or None if failed
         """
         # Check cache
-        cache_key = f"file_data:{file_type.id}"
+        cache_key = f"db_data:{file_type.id}"
         if not force_reload:
             cached = self.cache_manager.get(cache_key)
             if cached is not None:
                 logger.info(f"Loaded {file_type.id} from cache")
-                self._loaded_data[file_type] = pd.DataFrame(cached)
-                return self._loaded_data[file_type]
+                df = pd.DataFrame(cached)
+                self._loaded_data[file_type] = df
+                return df
 
-        # Load from file
-        config = self.FILE_CONFIGS.get(file_type)
-        if not config:
-            logger.error(f"No configuration for {file_type}")
+        # Load from DB
+        model = self.MODEL_MAP.get(file_type)
+        if not model:
+            logger.error(f"No model mapping for {file_type}")
             return None
 
+        db = SessionLocal()
         try:
-            # Read with proper header row from config
-            df = pd.read_excel(
-                config.filepath, sheet_name=config.sheet_index, header=config.header_row
-            )
+            logger.info(f"READING FROM SQLITE DB: {file_type.id}")
+            query = db.query(model)
+            df = pd.read_sql(query.statement, db.bind)
 
-            # Drop the first column if it's unnamed (row numbers)
-            if "Unnamed: 0" in df.columns:
-                df = df.drop("Unnamed: 0", axis=1)
+            if df.empty:
+                logger.warning(f"No data found in DB for {file_type.id}")
+                return None
 
-            # Remove completely empty rows
-            df = df.dropna(how="all")
-
-            # Rial to Toman conversion (Rial / 10)
-            # Identify columns that likely contain amounts
-            amount_cols = [
-                "بستانکار",
-                "جمع بهای کالاها و خدمات ",
-                "جمع بهای برگه",
-            ]
-            for col in df.columns:
-                if col in amount_cols:
-                    df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0) / 10
+            # Remove SQLAlchemy internal state if any (though read_sql usually doesn't have it)
+            if "_sa_instance_state" in df.columns:
+                df = df.drop("_sa_instance_state", axis=1)
 
             logger.info(
-                f"Loaded {file_type.id}: {len(df)} rows, {len(df.columns)} columns"
+                f"Loaded {file_type.id} from DB: {len(df)} rows, {len(df.columns)} columns"
             )
 
             # Cache the data
@@ -116,12 +124,11 @@ class DataManager:
             self._loaded_data[file_type] = df
 
             return df
-        except FileNotFoundError:
-            logger.error(f"File not found: {config.filepath}")
-            return None
         except Exception as e:
-            logger.error(f"Error loading {file_type.value}: {e}")
+            logger.error(f"Error loading {file_type.value} from DB: {e}")
             return None
+        finally:
+            db.close()
 
     def load_all_files(
         self, force_reload: bool = False

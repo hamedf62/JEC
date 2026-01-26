@@ -44,7 +44,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 # Copy application code
 COPY app/ ./app/
-COPY data/ ./data/
+# COPY data/ ./data/
 
 # Expose Streamlit port
 EXPOSE 8501

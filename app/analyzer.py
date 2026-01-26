@@ -38,9 +38,15 @@ class DataAnalyzer:
         if pd.isna(jalali_str) or not jalali_str:
             return None
         try:
+            # If already a datetime object, return it (or its date)
+            if hasattr(jalali_str, "date"):
+                return jalali_str.date() if hasattr(jalali_str, "date") else jalali_str
+
             # Handle string date formats like "1404/01/18"
             if isinstance(jalali_str, str):
-                parts = jalali_str.strip().split("/")
+                # Remove any time component if present
+                date_part = jalali_str.split(" ")[0]
+                parts = date_part.strip().split("/")
                 if len(parts) == 3:
                     jy, jm, jd = int(parts[0]), int(parts[1]), int(parts[2])
                     j_date = jdatetime.date(jy, jm, jd)
@@ -119,6 +125,14 @@ class DataAnalyzer:
             result_data = self._analyze_customer_loyalty(file_type, df, **kwargs)
         elif analysis_type == AnalysisType.ADVANCED_REPORT:
             result_data = self._analyze_advanced_report(**kwargs)
+        elif analysis_type == AnalysisType.CASH_FLOW:
+            result_data = self._analyze_cash_flow(**kwargs)
+        elif analysis_type == AnalysisType.ACCOUNTS_AGING:
+            result_data = self._analyze_accounts_aging(**kwargs)
+        elif analysis_type == AnalysisType.PROFITABILITY_ANALYSIS:
+            result_data = self._analyze_profitability(**kwargs)
+        elif analysis_type == AnalysisType.INTEGRATED_TREND:
+            result_data = self._analyze_integrated_trend(**kwargs)
         else:
             logger.warning(f"Unknown analysis type: {analysis_type}")
             return None
@@ -149,7 +163,7 @@ class DataAnalyzer:
             numeric_cols = [
                 col
                 for col in df.select_dtypes(include=[np.number]).columns
-                if col not in ["ردیف", "Unnamed: 0"]
+                if col not in ["row_id", "id", "Unnamed: 0"]
             ]
             if not numeric_cols:
                 return {"columns": list(df.columns), "rows": len(df)}
@@ -228,7 +242,7 @@ class DataAnalyzer:
             numeric_cols = [
                 col
                 for col in df.select_dtypes(include=[np.number]).columns
-                if col not in ["ردیف", "Unnamed: 0"]
+                if col not in ["row_id", "id", "Unnamed: 0"]
             ]
 
             # Find date columns
@@ -308,12 +322,20 @@ class DataAnalyzer:
             numeric_cols = [
                 col
                 for col in df.select_dtypes(include=[np.number]).columns
-                if col not in ["ردیف", "Unnamed: 0"]
+                if col not in ["row_id", "id", "Unnamed: 0"]
             ]
             string_cols = [
                 col
                 for col in df.select_dtypes(include=["object"]).columns
-                if col not in ["تاریخ", "تاریخ سررسید", "شرح عملیات"]
+                if col
+                not in [
+                    "document_date",
+                    "due_date",
+                    "description",
+                    "invoice_date",
+                    "performa_date",
+                    "internal_due_date",
+                ]
             ]
 
             result = {"file_type": file_type.id, "top_n": top_n, "beneficiaries": []}
@@ -408,20 +430,20 @@ class DataAnalyzer:
             if df_performa is None or df_invoices is None:
                 return {"error": "Missing data for analysis"}
 
-            # Join on OC
+            # Join on order_code
             joined = pd.merge(
-                df_performa[["OC", "تاریخ", "نام مشتری", "جمع بهای برگه"]],
-                df_invoices[["OC", "تاریخ", "جمع بهای کالاها و خدمات "]],
-                on="OC",
+                df_performa[["order_code", "performa_date", "customer_name", "amount"]],
+                df_invoices[["order_code", "invoice_date", "total_amount"]],
+                on="order_code",
                 how="left",
                 suffixes=("_performa", "_invoice"),
             )
 
             # Convert dates
-            joined["date_performa"] = joined["تاریخ_performa"].apply(
+            joined["date_performa"] = joined["performa_date"].apply(
                 self._jalali_to_gregorian
             )
-            joined["date_invoice"] = joined["تاریخ_invoice"].apply(
+            joined["date_invoice"] = joined["invoice_date"].apply(
                 self._jalali_to_gregorian
             )
 
@@ -448,7 +470,7 @@ class DataAnalyzer:
                 ),
                 "average_gap_days": float(joined["gap_days"].mean()),
                 "payment_details": joined[
-                    ["OC", "نام مشتری", "gap_days", "is_paid", "is_on_time"]
+                    ["order_code", "customer_name", "gap_days", "is_paid", "is_on_time"]
                 ].to_dict("records"),
             }
         except Exception as e:
@@ -463,28 +485,31 @@ class DataAnalyzer:
             if df.empty:
                 return {"error": "No data"}
 
-            name_col = "نام مشتری"
-            amount_col = (
-                "جمع بهای کالاها و خدمات "
-                if file_type == FileType.INVOICES
-                else "جمع بهای برگه"
-            )
+            name_col = "customer_name"
+            amount_col = "total_amount" if file_type == FileType.INVOICES else "amount"
 
             if file_type == FileType.PAYABLE:
-                name_col = "نام تفصیلی 1"
-                amount_col = "بستانکار"
+                name_col = "beneficiary"
+                amount_col = "amount"
 
             if name_col not in df.columns or amount_col not in df.columns:
                 return {
                     "error": f"ستون‌های مورد نیاز ({name_col}, {amount_col}) یافت نشدند"
                 }
 
+            # Map date column
+            date_col = "document_date"
+            if file_type == FileType.INVOICES:
+                date_col = "invoice_date"
+            elif file_type == FileType.PERFORMA:
+                date_col = "performa_date"
+
             loyalty = (
                 df.groupby(name_col)
                 .agg(
                     {
                         amount_col: ["sum", "count", "mean"],
-                        "تاریخ": "max",  # Last purchase
+                        date_col: "max",  # Last purchase
                     }
                 )
                 .reset_index()
@@ -517,12 +542,12 @@ class DataAnalyzer:
 
             report = {
                 "total_sales": (
-                    float(df_invoices["جمع بهای کالاها و خدمات "].sum())
+                    float(df_invoices["total_amount"].sum())
                     if df_invoices is not None
                     else 0
                 ),
                 "total_payable": (
-                    float(df_payable["بستانکار"].sum()) if df_payable is not None else 0
+                    float(df_payable["amount"].sum()) if df_payable is not None else 0
                 ),
                 "performa_count": len(df_performa) if df_performa is not None else 0,
                 "invoice_count": len(df_invoices) if df_invoices is not None else 0,
@@ -539,4 +564,564 @@ class DataAnalyzer:
             return report
         except Exception as e:
             logger.error(f"Error in advanced report: {e}")
+            return None
+
+    def _analyze_cash_flow(self, **kwargs) -> Optional[Dict]:
+        """Analyze cash flow: income vs outcome with time series."""
+        try:
+            df_payable = self.data_manager.get_dataframe(FileType.PAYABLE)
+            df_receivable = self.data_manager.get_dataframe(FileType.RECEIVABLE)
+            df_invoices = self.data_manager.get_dataframe(FileType.INVOICES)
+            df_performa = self.data_manager.get_dataframe(FileType.PERFORMA)
+
+            # Initialize cash flow data
+            cash_flows = []
+
+            # Process payables (outgoing)
+            if df_payable is not None and not df_payable.empty:
+                payable_data = df_payable[["due_date", "amount"]].copy()
+                payable_data["date"] = payable_data["due_date"].apply(
+                    self._jalali_to_gregorian
+                )
+                payable_data["date"] = pd.to_datetime(
+                    payable_data["date"], errors="coerce"
+                )
+                payable_data["amount"] = -pd.to_numeric(
+                    payable_data["amount"], errors="coerce"
+                )
+                payable_data["type"] = "پرداختی (چک)"
+                cash_flows.append(payable_data[["date", "amount", "type"]].dropna())
+
+            # Process receivables (incoming)
+            if df_receivable is not None and not df_receivable.empty:
+                receivable_data = df_receivable[["due_date", "amount"]].copy()
+                receivable_data["date"] = receivable_data["due_date"].apply(
+                    self._jalali_to_gregorian
+                )
+                receivable_data["date"] = pd.to_datetime(
+                    receivable_data["date"], errors="coerce"
+                )
+                receivable_data["amount"] = pd.to_numeric(
+                    receivable_data["amount"], errors="coerce"
+                )
+                receivable_data["type"] = "دریافتی (چک)"
+                cash_flows.append(receivable_data[["date", "amount", "type"]].dropna())
+
+            # Process invoices (income from sales)
+            if df_invoices is not None and not df_invoices.empty:
+                invoice_data = df_invoices[["invoice_date", "total_amount"]].copy()
+                invoice_data["date"] = invoice_data["invoice_date"].apply(
+                    self._jalali_to_gregorian
+                )
+                invoice_data["date"] = pd.to_datetime(
+                    invoice_data["date"], errors="coerce"
+                )
+                invoice_data["amount"] = pd.to_numeric(
+                    invoice_data["total_amount"], errors="coerce"
+                )
+                invoice_data["type"] = "فروش (فاکتور)"
+                cash_flows.append(invoice_data[["date", "amount", "type"]].dropna())
+
+            # Process performas (potential income)
+            if df_performa is not None and not df_performa.empty:
+                performa_data = df_performa[["performa_date", "amount"]].copy()
+                performa_data["date"] = performa_data["performa_date"].apply(
+                    self._jalali_to_gregorian
+                )
+                performa_data["date"] = pd.to_datetime(
+                    performa_data["date"], errors="coerce"
+                )
+                performa_data["amount"] = pd.to_numeric(
+                    performa_data["amount"], errors="coerce"
+                )
+                performa_data["type"] = "پیش‌فاکتور (بالقوه)"
+                cash_flows.append(performa_data[["date", "amount", "type"]].dropna())
+
+            if not cash_flows:
+                return {"error": "No cash flow data available"}
+
+            # Combine all cash flows
+            df_cash = pd.concat(cash_flows, ignore_index=True)
+            df_cash = df_cash.sort_values("date")
+
+            # Calculate cumulative cash position
+            df_cash["cumulative"] = df_cash["amount"].cumsum()
+            df_cash["jalali_date"] = df_cash["date"].apply(self._to_jalali)
+
+            # Calculate daily net flow
+            daily_flow = (
+                df_cash.groupby(df_cash["date"].dt.date)
+                .agg({"amount": "sum", "cumulative": "last"})
+                .reset_index()
+            )
+            daily_flow["jalali_date"] = daily_flow["date"].apply(self._to_jalali)
+
+            # Calculate summary by type
+            type_summary = (
+                df_cash.groupby("type")["amount"]
+                .agg(["sum", "count", "mean"])
+                .reset_index()
+            )
+
+            # Current position
+            current_position = (
+                float(df_cash["cumulative"].iloc[-1]) if len(df_cash) > 0 else 0
+            )
+
+            # Total income and outcome
+            total_income = float(df_cash[df_cash["amount"] > 0]["amount"].sum())
+            total_outcome = float(abs(df_cash[df_cash["amount"] < 0]["amount"].sum()))
+
+            return {
+                "current_position": current_position,
+                "total_income": total_income,
+                "total_outcome": total_outcome,
+                "net_cash_flow": total_income - total_outcome,
+                "daily_flow": daily_flow.to_dict("records"),
+                "type_summary": type_summary.to_dict("records"),
+                "detailed_transactions": df_cash.to_dict("records"),
+            }
+        except Exception as e:
+            logger.error(f"Error in cash flow analysis: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
+            return None
+
+    def _analyze_accounts_aging(self, **kwargs) -> Optional[Dict]:
+        """Analyze aging of receivables and payables (overdue analysis)."""
+        try:
+            from datetime import date
+
+            today = date.today()
+
+            df_payable = self.data_manager.get_dataframe(FileType.PAYABLE)
+            df_receivable = self.data_manager.get_dataframe(FileType.RECEIVABLE)
+
+            aging_buckets = {
+                "current": [],  # Not yet due
+                "1-30": [],  # 1-30 days overdue
+                "31-60": [],  # 31-60 days overdue
+                "61-90": [],  # 61-90 days overdue
+                "90+": [],  # Over 90 days overdue
+            }
+
+            # Analyze payables
+            payables_aging = {"total": 0, "overdue": 0, "buckets": aging_buckets.copy()}
+            if df_payable is not None and not df_payable.empty:
+                for _, row in df_payable.iterrows():
+                    due_date = self._jalali_to_gregorian(row["due_date"])
+                    if due_date:
+                        amount = pd.to_numeric(row["amount"], errors="coerce")
+                        if pd.notna(amount):
+                            days_diff = (today - due_date).days
+                            payables_aging["total"] += amount
+
+                            if days_diff < 0:
+                                payables_aging["buckets"]["current"].append(amount)
+                            elif days_diff <= 30:
+                                payables_aging["buckets"]["1-30"].append(amount)
+                                payables_aging["overdue"] += amount
+                            elif days_diff <= 60:
+                                payables_aging["buckets"]["31-60"].append(amount)
+                                payables_aging["overdue"] += amount
+                            elif days_diff <= 90:
+                                payables_aging["buckets"]["61-90"].append(amount)
+                                payables_aging["overdue"] += amount
+                            else:
+                                payables_aging["buckets"]["90+"].append(amount)
+                                payables_aging["overdue"] += amount
+
+            # Analyze receivables
+            receivables_aging = {
+                "total": 0,
+                "overdue": 0,
+                "buckets": aging_buckets.copy(),
+            }
+            if df_receivable is not None and not df_receivable.empty:
+                for _, row in df_receivable.iterrows():
+                    due_date = self._jalali_to_gregorian(row["due_date"])
+                    if due_date:
+                        amount = pd.to_numeric(row["amount"], errors="coerce")
+                        if pd.notna(amount):
+                            days_diff = (today - due_date).days
+                            receivables_aging["total"] += amount
+
+                            if days_diff < 0:
+                                receivables_aging["buckets"]["current"].append(amount)
+                            elif days_diff <= 30:
+                                receivables_aging["buckets"]["1-30"].append(amount)
+                                receivables_aging["overdue"] += amount
+                            elif days_diff <= 60:
+                                receivables_aging["buckets"]["31-60"].append(amount)
+                                receivables_aging["overdue"] += amount
+                            elif days_diff <= 90:
+                                receivables_aging["buckets"]["61-90"].append(amount)
+                                receivables_aging["overdue"] += amount
+                            else:
+                                receivables_aging["buckets"]["90+"].append(amount)
+                                receivables_aging["overdue"] += amount
+
+            # Calculate bucket sums
+            for aging_dict in [payables_aging, receivables_aging]:
+                aging_dict["buckets"] = {
+                    bucket: sum(amounts)
+                    for bucket, amounts in aging_dict["buckets"].items()
+                }
+
+            return {
+                "analysis_date": today.isoformat(),
+                "analysis_jalali_date": self._to_jalali(today),
+                "payables": payables_aging,
+                "receivables": receivables_aging,
+                "net_position": receivables_aging["total"] - payables_aging["total"],
+                "total_overdue_payables": payables_aging["overdue"],
+                "total_overdue_receivables": receivables_aging["overdue"],
+            }
+        except Exception as e:
+            logger.error(f"Error in accounts aging analysis: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
+            return None
+
+    def _analyze_profitability(self, **kwargs) -> Optional[Dict]:
+        """Analyze profitability: revenue, costs, margins."""
+        try:
+            df_invoices = self.data_manager.get_dataframe(FileType.INVOICES)
+            df_payable = self.data_manager.get_dataframe(FileType.PAYABLE)
+
+            # Calculate revenue from invoices
+            total_revenue = 0
+            total_revenue_pre_tax = 0
+            total_tax = 0
+
+            if df_invoices is not None and not df_invoices.empty:
+                total_revenue = float(
+                    pd.to_numeric(df_invoices["total_amount"], errors="coerce").sum()
+                )
+                total_revenue_pre_tax = float(
+                    pd.to_numeric(df_invoices["subtotal"], errors="coerce").sum()
+                )
+                total_tax = float(
+                    pd.to_numeric(df_invoices["tax"], errors="coerce").sum()
+                )
+
+            # Calculate costs from payables (operational costs)
+            total_costs = 0
+            if df_payable is not None and not df_payable.empty:
+                total_costs = float(
+                    pd.to_numeric(df_payable["amount"], errors="coerce").sum()
+                )
+
+            # Calculate profitability metrics
+            gross_profit = total_revenue_pre_tax - total_costs
+            net_profit = total_revenue - total_costs
+            gross_margin = (
+                (gross_profit / total_revenue_pre_tax * 100)
+                if total_revenue_pre_tax > 0
+                else 0
+            )
+            net_margin = (net_profit / total_revenue * 100) if total_revenue > 0 else 0
+
+            # Revenue by customer
+            customer_revenue = []
+            if df_invoices is not None and not df_invoices.empty:
+                customer_data = (
+                    df_invoices.groupby("customer_name")["total_amount"]
+                    .agg(["sum", "count"])
+                    .reset_index()
+                )
+                customer_data.columns = ["customer", "revenue", "invoice_count"]
+                customer_data = customer_data.sort_values("revenue", ascending=False)
+                customer_revenue = customer_data.head(10).to_dict("records")
+
+            # Monthly revenue trend
+            monthly_revenue = []
+            if df_invoices is not None and not df_invoices.empty:
+                df_inv = df_invoices.copy()
+                df_inv["date"] = df_inv["invoice_date"].apply(self._jalali_to_gregorian)
+                df_inv["date"] = pd.to_datetime(df_inv["date"], errors="coerce")
+                df_inv["amount"] = pd.to_numeric(
+                    df_inv["total_amount"], errors="coerce"
+                )
+                df_inv = df_inv.dropna(subset=["date", "amount"])
+
+                if len(df_inv) > 0:
+                    df_inv["month"] = df_inv["date"].dt.to_period("M")
+                    monthly = (
+                        df_inv.groupby("month")["amount"]
+                        .agg(["sum", "count"])
+                        .reset_index()
+                    )
+                    monthly["month"] = monthly["month"].astype(str)
+                    monthly_revenue = monthly.to_dict("records")
+
+            return {
+                "total_revenue": total_revenue,
+                "total_revenue_pre_tax": total_revenue_pre_tax,
+                "total_tax": total_tax,
+                "total_costs": total_costs,
+                "gross_profit": gross_profit,
+                "net_profit": net_profit,
+                "gross_margin": gross_margin,
+                "net_margin": net_margin,
+                "customer_revenue": customer_revenue,
+                "monthly_revenue": monthly_revenue,
+            }
+        except Exception as e:
+            logger.error(f"Error in profitability analysis: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
+            return None
+
+    def _analyze_integrated_trend(self, **kwargs) -> Optional[Dict]:
+        """Analyze integrated business trend: Sales vs Performa vs Net Cash Flow."""
+        try:
+            df_invoices = self.data_manager.get_dataframe(FileType.INVOICES)
+            df_performa = self.data_manager.get_dataframe(FileType.PERFORMA)
+            df_payable = self.data_manager.get_dataframe(FileType.PAYABLE)
+            df_receivable = self.data_manager.get_dataframe(FileType.RECEIVABLE)
+
+            all_monthly_data = []
+
+            # 1. Monthly Invoices
+            if df_invoices is not None and not df_invoices.empty:
+                df = df_invoices.copy()
+                df["date"] = df["invoice_date"].apply(self._jalali_to_gregorian)
+                df["date"] = pd.to_datetime(df["date"], errors="coerce")
+                df = df.dropna(subset=["date"])
+                if not df.empty:
+                    df["month"] = df["date"].dt.to_period("M")
+                    # Use total_amount instead of the Persian name
+                    monthly_inv = (
+                        df.groupby("month")["total_amount"].sum().reset_index()
+                    )
+                    monthly_inv["type"] = "فروش (فاکتور)"
+                    all_monthly_data.append(monthly_inv)
+
+            # 2. Monthly Performa
+            if df_performa is not None and not df_performa.empty:
+                df = df_performa.copy()
+                df["date"] = df["performa_date"].apply(self._jalali_to_gregorian)
+                df["date"] = pd.to_datetime(df["date"], errors="coerce")
+                df = df.dropna(subset=["date"])
+                if not df.empty:
+                    df["month"] = df["date"].dt.to_period("M")
+                    monthly_perf = df.groupby("month")["amount"].sum().reset_index()
+                    monthly_perf["type"] = "پیش‌فاکتور"
+                    all_monthly_data.append(monthly_perf)
+
+            # 3. Monthly Cash Flows (Incoming vs Outgoing)
+            cash_txs = []
+            if df_payable is not None and not df_payable.empty:
+                df = df_payable.copy()
+                df["date"] = df["due_date"].apply(self._jalali_to_gregorian)
+                df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+                df["type_name"] = "پرداختی (چک)"
+                cash_txs.append(
+                    df[["date", "amount", "type_name"]].dropna(subset=["date"])
+                )
+
+            if df_receivable is not None and not df_receivable.empty:
+                df = df_receivable.copy()
+                df["date"] = df["due_date"].apply(self._jalali_to_gregorian)
+                df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+                df["type_name"] = "دریافتی (چک)"
+                cash_txs.append(
+                    df[["date", "amount", "type_name"]].dropna(subset=["date"])
+                )
+
+            if cash_txs:
+                df_cash_detail = pd.concat(cash_txs)
+                # ...
+                # Use sub-blocks to avoid huge replace
+
+            if cash_txs:
+                df_cash_detail = pd.concat(cash_txs)
+                df_cash_detail["date"] = pd.to_datetime(
+                    df_cash_detail["date"], errors="coerce"
+                )
+                df_cash_detail = df_cash_detail.dropna(subset=["date"])
+                if not df_cash_detail.empty:
+                    # Sort for cumulative
+                    df_cash_detail = df_cash_detail.sort_values("date")
+                    df_cash_detail["net_amount"] = df_cash_detail.apply(
+                        lambda x: (
+                            x["amount"]
+                            if x["type_name"] == "دریافتی (چک)"
+                            else -x["amount"]
+                        ),
+                        axis=1,
+                    )
+
+                    df_cash_detail["month"] = df_cash_detail["date"].dt.to_period("M")
+
+                    # Group by month and type
+                    monthly_cash = (
+                        df_cash_detail.groupby(["month", "type_name"])["amount"]
+                        .sum()
+                        .reset_index()
+                    )
+                    monthly_cash.columns = ["month", "type", "value"]
+                    all_monthly_data.append(monthly_cash)
+
+                    # Add Net Cash Flow line
+                    monthly_net = (
+                        df_cash_detail.groupby("month")["net_amount"]
+                        .sum()
+                        .reset_index()
+                    )
+                    monthly_net.columns = ["month", "value"]
+                    monthly_net["type"] = "جریان نقد خالص"
+                    all_monthly_data.append(monthly_net)
+
+            if not all_monthly_data:
+                return {"error": "Lack of data for trend"}
+
+            df_combined = pd.concat(all_monthly_data)
+            df_combined["month_str"] = df_combined["month"].astype(str)
+
+            # Pivot for easier charting
+            df_pivot = (
+                df_combined.pivot(index="month_str", columns="type", values="value")
+                .fillna(0)
+                .reset_index()
+            )
+
+            # Add cumulative cash position if Net flow exists
+            if "جریان نقد خالص" in df_pivot.columns:
+                df_pivot["موقعیت نقدی انباشته"] = df_pivot["جریان نقد خالص"].cumsum()
+
+            return {
+                "trend_data": df_pivot.to_dict("records"),
+                "types": [
+                    c
+                    for c in df_pivot.columns
+                    if c != "month_str" and c != "موقعیت نقدی انباشته"
+                ],
+                "cumulative_col": (
+                    "موقعیت نقدی انباشته"
+                    if "موقعیت نقدی انباشته" in df_pivot.columns
+                    else None
+                ),
+            }
+        except Exception as e:
+            logger.error(f"Error in integrated trend analysis: {e}")
+            return None
+
+    def _analyze_forecast(self, forecast_days: int = 90, **kwargs) -> Optional[Dict]:
+        """Forecast future cash position based on due dates."""
+        try:
+            from datetime import date, timedelta
+
+            today = date.today()
+
+            df_payable = self.data_manager.get_dataframe(FileType.PAYABLE)
+            df_receivable = self.data_manager.get_dataframe(FileType.RECEIVABLE)
+
+            # Collect future transactions
+            future_transactions = []
+
+            # Future payables
+            if df_payable is not None and not df_payable.empty:
+                for _, row in df_payable.iterrows():
+                    due_date = self._jalali_to_gregorian(row["due_date"])
+                    if due_date and due_date >= today:
+                        amount = pd.to_numeric(row["amount"], errors="coerce")
+                        if pd.notna(amount):
+                            future_transactions.append(
+                                {
+                                    "date": due_date,
+                                    "amount": -amount,
+                                    "type": "پرداختی",
+                                    "description": row.get("beneficiary", "N/A"),
+                                }
+                            )
+
+            # Future receivables
+            if df_receivable is not None and not df_receivable.empty:
+                for _, row in df_receivable.iterrows():
+                    due_date = self._jalali_to_gregorian(row["due_date"])
+                    if due_date and due_date >= today:
+                        amount = pd.to_numeric(row["amount"], errors="coerce")
+                        if pd.notna(amount):
+                            future_transactions.append(
+                                {
+                                    "date": due_date,
+                                    "amount": amount,
+                                    "type": "دریافتی",
+                                    "description": row.get("company_name", "N/A"),
+                                }
+                            )
+
+            if not future_transactions:
+                return {"error": "No future transactions to forecast"}
+
+            # Sort by date
+            df_future = pd.DataFrame(future_transactions)
+            df_future = df_future.sort_values("date")
+
+            # Calculate cumulative position
+            # Assume current position is 0 (you can adjust this)
+            current_position = 0
+            df_future["cumulative"] = current_position + df_future["amount"].cumsum()
+            df_future["jalali_date"] = df_future["date"].apply(self._to_jalali)
+
+            # Daily forecast
+            daily_forecast = (
+                df_future.groupby("date")
+                .agg({"amount": "sum", "cumulative": "last"})
+                .reset_index()
+            )
+            daily_forecast["jalali_date"] = daily_forecast["date"].apply(
+                self._to_jalali
+            )
+
+            # Find minimum and maximum cash positions
+            min_position = float(df_future["cumulative"].min())
+            max_position = float(df_future["cumulative"].max())
+            min_date = df_future.loc[df_future["cumulative"].idxmin(), "date"]
+            max_date = df_future.loc[df_future["cumulative"].idxmax(), "date"]
+
+            # Weekly summary
+            df_future["week"] = pd.to_datetime(df_future["date"]).dt.to_period("W")
+            weekly_forecast = (
+                df_future.groupby("week")
+                .agg({"amount": "sum", "cumulative": "last"})
+                .reset_index()
+            )
+            weekly_forecast["week"] = weekly_forecast["week"].astype(str)
+
+            return {
+                "forecast_days": forecast_days,
+                "current_date": today.isoformat(),
+                "current_jalali_date": self._to_jalali(today),
+                "forecast_date": (today + timedelta(days=forecast_days)).isoformat(),
+                "forecast_jalali_date": self._to_jalali(
+                    today + timedelta(days=forecast_days)
+                ),
+                "total_incoming": float(
+                    df_future[df_future["amount"] > 0]["amount"].sum()
+                ),
+                "total_outgoing": float(
+                    abs(df_future[df_future["amount"] < 0]["amount"].sum())
+                ),
+                "net_forecast": float(df_future["amount"].sum()),
+                "min_position": min_position,
+                "max_position": max_position,
+                "min_position_date": min_date.isoformat(),
+                "min_position_jalali_date": self._to_jalali(min_date),
+                "max_position_date": max_date.isoformat(),
+                "max_position_jalali_date": self._to_jalali(max_date),
+                "daily_forecast": daily_forecast.to_dict("records"),
+                "weekly_forecast": weekly_forecast.to_dict("records"),
+                "detailed_transactions": df_future.to_dict("records"),
+            }
+        except Exception as e:
+            logger.error(f"Error in forecast analysis: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
             return None
