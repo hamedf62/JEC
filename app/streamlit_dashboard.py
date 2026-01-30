@@ -970,32 +970,32 @@ def render_accounts_aging_single(analyzer: DataAnalyzer, file_type: FileType):
 def render_sales_tab(analyzer: DataAnalyzer):
     """Render the Sales tab combining Invoices and Performas."""
     st.header("📈 مدیریت فروش و پیش‌فاکتورها")
-    
+
     tab_inv, tab_perf = st.tabs(["فاکتورهای نهایی (Income)", "پیش‌فاکتورها (Pipeline)"])
-    
+
     with tab_inv:
         st.subheader("📊 فاکتورهای فروش (درآینده محقق شده)")
         render_metrics(analyzer, FileType.INVOICES)
-        
+
         col1, col2 = st.columns(2)
         with col1:
             render_profitability(analyzer)
         with col2:
             render_customer_loyalty(analyzer, FileType.INVOICES)
-            
+
         st.markdown("---")
         render_daily_breakdown(analyzer, FileType.INVOICES)
-        
+
     with tab_perf:
         st.subheader("📝 پیش‌فاکتورهای صادر شده")
         render_metrics(analyzer, FileType.PERFORMA)
-        
+
         col1, col2 = st.columns(2)
         with col1:
             render_on_time_payment(analyzer)
         with col2:
             render_top_beneficiaries(analyzer, FileType.PERFORMA)
-            
+
         st.markdown("---")
         render_daily_breakdown(analyzer, FileType.PERFORMA)
 
@@ -1003,10 +1003,10 @@ def render_sales_tab(analyzer: DataAnalyzer):
 def render_debts_tab(analyzer: DataAnalyzer):
     """Render the Debts (Payables) tab."""
     st.header("📤 مدیریت بدهی‌ها و اسناد پرداختنی")
-    
+
     render_metrics(analyzer, FileType.PAYABLE)
     st.markdown("---")
-    
+
     col1, col2 = st.columns([2, 1])
     with col1:
         render_accounts_aging_single(analyzer, FileType.PAYABLE)
@@ -1020,7 +1020,7 @@ def render_debts_tab(analyzer: DataAnalyzer):
                 st.error(f"مبلغ {overdue:,.0f} تومان از تعهدات شما معوق شده است.")
             else:
                 st.success("تمامی تعهدات در جریان یا آینده هستند.")
-                
+
     st.markdown("---")
     render_daily_breakdown(analyzer, FileType.PAYABLE)
     render_top_beneficiaries(analyzer, FileType.PAYABLE)
@@ -1029,10 +1029,10 @@ def render_debts_tab(analyzer: DataAnalyzer):
 def render_receivables_tab(analyzer: DataAnalyzer):
     """Render the Receivables tab."""
     st.header("📥 مدیریت مطالبات و اسناد دریافتی")
-    
+
     render_metrics(analyzer, FileType.RECEIVABLE)
     st.markdown("---")
-    
+
     col1, col2 = st.columns([2, 1])
     with col1:
         render_accounts_aging_single(analyzer, FileType.RECEIVABLE)
@@ -1061,7 +1061,7 @@ def main():
     with st.sidebar:
         st.title("⚙️ تنظیمات")
         st.markdown("---")
-        
+
         # File operations
         if st.button("🔄 بارگذاری مجدد فایل‌ها", use_container_width=True):
             data_manager.load_all_files(force_reload=True)
@@ -1073,45 +1073,47 @@ def main():
 
         st.markdown("---")
         render_cache_info(cache_manager)
-        
+
         st.markdown("---")
         st.info("📊 داشبورد نقدینگی JEC")
 
     # Main header
     st.title(f"📊 سامانه تحلیل مالی و نقدینگی {PROJECT_COMPANY}")
-    
+
     # Load data
     with st.spinner("در حال بارگذاری..."):
         data_manager.load_all_files()
 
     # Main Tabs
-    main_tabs = st.tabs([
-        "🏠 داشبورد جامع (نقدینگی)",
-        "📈 گزارش فروش",
-        "📤 بدهی‌ها (پرداختنی)",
-        "📥 مطالبات (دریافتی)",
-        "🔍 کاوش داده"
-    ])
-    
+    main_tabs = st.tabs(
+        [
+            "🏠 داشبورد جامع (نقدینگی)",
+            "📈 گزارش فروش",
+            "📤 بدهی‌ها (پرداختنی)",
+            "📥 مطالبات (دریافتی)",
+            "🔍 کاوش داده",
+        ]
+    )
+
     with main_tabs[0]:
         render_executive_summary(analyzer)
         st.markdown("---")
         render_cash_flow(analyzer)
-        
+
     with main_tabs[1]:
         render_sales_tab(analyzer)
-        
+
     with main_tabs[2]:
         render_debts_tab(analyzer)
-        
+
     with main_tabs[3]:
         render_receivables_tab(analyzer)
-        
+
     with main_tabs[4]:
         st.subheader("🔍 جستجو و فیلتر پیشرفته داده‌ها")
         file_choice = st.selectbox("انتخاب نوع داده:", [f.label for f in FileType])
         target_file = next(f for f in FileType if f.label == file_choice)
-        
+
         df = data_manager.get_dataframe(target_file)
         if df is not None:
             st.dataframe(df, use_container_width=True)
