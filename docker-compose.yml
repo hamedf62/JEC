@@ -1,4 +1,26 @@
 services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: jec-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./certbot-webroot:/var/www/certbot:rw
+    depends_on:
+      - app
+    networks:
+      - jec-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
   # Redis Cache Service
   redis:
     image: redis:7-alpine
@@ -27,8 +49,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: jec-streamlit
-    ports:
-      - "8501:8501"
+    expose:
+      - "8501"
     volumes:
       - ./app:/app/app:ro
       - ./data:/app/data:rw
@@ -43,6 +65,14 @@ services:
         condition: service_healthy
     networks:
       - jec-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jec.rule=Host(`jec.dataplay.ir`)"
+      - "traefik.http.routers.jec.entrypoints=web,websecure"
+      - "traefik.http.routers.jec.tls=true"
+      - "traefik.http.routers.jec.tls.certresolver=letsencrypt"
+      - "traefik.http.services.jec.loadbalancer.server.port=8501"
+      - "traefik.http.middlewares.jec-stripprefix.stripprefix.prefixes=/jec"
     logging:
       driver: "json-file"
       options:

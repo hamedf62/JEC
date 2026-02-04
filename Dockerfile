@@ -1,5 +1,5 @@
 # --- Stage 1: Builder ---
-FROM python:3.12-slim AS builder
+FROM mcr.microsoft.com/devcontainers/python:3.12 AS builder
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -23,11 +23,10 @@ RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
     find /opt/venv -name "*.pyc" -delete && \
     rm -rf /opt/venv/lib/python*/site-packages/pip \
     /opt/venv/lib/python*/site-packages/setuptools \
-    /opt/venv/lib/python*/site-packages/wheel \
-    /opt/venv/lib/python*/site-packages/pyarrow # Remove pyarrow to save 120MB+
+    /opt/venv/lib/python*/site-packages/wheel
 
 # --- Stage 2: Final ---
-FROM python:3.12-slim
+FROM mcr.microsoft.com/devcontainers/python:3.12
 
 # Set working directory
 WORKDIR /app
@@ -44,6 +43,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 # Copy application code
 COPY app/ ./app/
+# Copy Streamlit configuration
+COPY .streamlit/ ./.streamlit/
 # COPY data/ ./data/
 
 # Expose Streamlit port
