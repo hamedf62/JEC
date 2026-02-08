@@ -11,7 +11,8 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot-webroot:/var/www/certbot:rw
     depends_on:
-      - app
+      - backend
+      - frontend
     networks:
       - jec-network
     logging:
@@ -44,17 +45,17 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Streamlit Dashboard Application
-  app:
+  # FastAPI Backend
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: jec-streamlit
+    container_name: jec-backend
     expose:
-      - "8501"
+      - "8000"
     volumes:
-      - ./app:/app/app:ro
-      - ./data:/app/data:rw
+      - ./backend/app:/app/app:ro
+      - ./backend/data:/app/data:rw
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -66,19 +67,20 @@ services:
         condition: service_healthy
     networks:
       - jec-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.jec.rule=Host(`jec.dataplay.ir`)"
-      - "traefik.http.routers.jec.entrypoints=web,websecure"
-      - "traefik.http.routers.jec.tls=true"
-      - "traefik.http.routers.jec.tls.certresolver=letsencrypt"
-      - "traefik.http.services.jec.loadbalancer.server.port=8501"
-      - "traefik.http.middlewares.jec-stripprefix.stripprefix.prefixes=/jec"
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    restart: unless-stopped
+
+  # SvelteKit Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: jec-frontend
+    expose:
+      - "4173"
+    depends_on:
+      - backend
+    networks:
+      - jec-network
     restart: unless-stopped
 
 volumes:

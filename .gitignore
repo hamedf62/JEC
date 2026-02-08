@@ -66,3 +66,6 @@ data/~$*
 uv.lock
 
 /frontend/node_modules
+/frontend/.svelte-kit
+.svelte-kit
+.playwright-mcp
