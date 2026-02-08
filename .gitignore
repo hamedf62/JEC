@@ -64,3 +64,5 @@ data/~$*
 
 # uv
 uv.lock
+
+/frontend/node_modules

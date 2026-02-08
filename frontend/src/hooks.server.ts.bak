@@ -1,0 +1,4 @@
+import { handle as i18nHandle } from "./paraglide/server"
+import type { Handle } from "@sveltejs/kit"
+
+export const handle: Handle = i18nHandle

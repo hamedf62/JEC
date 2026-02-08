@@ -1,0 +1,16 @@
+[project]
+name = "jec"
+version = "2.0.0"
+description = "Professional Multi-File Data Analysis System with Redis Caching"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pandas<3.0.0",
+    "openpyxl>=3.1.0",
+    "jdatetime>=5.0.0",
+    "redis>=5.0.0",
+    "python-dotenv>=1.0.0",
+    "sqlalchemy>=2.0.0",
+    "fastapi[standard]>=0.128.4",
+    "uvicorn>=0.39.0",
+]

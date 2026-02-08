@@ -1,0 +1,9 @@
+pandas>=2.0.0
+openpyxl>=3.1.0
+jdatetime>=5.0.0
+redis>=5.0.0
+python-dotenv>=1.0.0
+sqlalchemy>=2.0.0
+pyarrow>=12.0.0
+fastapi>=0.110.0
+uvicorn>=0.27.0

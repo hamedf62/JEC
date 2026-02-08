@@ -1,0 +1,76 @@
+[   91443ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/.svelte-kit/generated/root.svelte:0
+[   91443ms] Failed to fetch dynamically imported module: http://localhost:5173/@fs/Users/hamed/Documents/myprojects/JEC/frontend/.svelte-kit/generated/client/app.js
+[   91505ms] [ERROR] WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/@vite/client:1034
+[  156480ms] [ERROR] WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/@vite/client:1034
+[  187813ms] [ERROR] [vite] SyntaxError: The requested module '/src/paraglide/runtime.js' does not provide an export named 'languageTag' @ http://localhost:5173/@vite/client:881
+[  187813ms] [ERROR] [vite] Failed to reload /src/routes/+layout.svelte. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:881
+[  187814ms] TypeError: Cannot read properties of undefined (reading 'default')
+    at http://localhost:5173/src/routes/+layout.svelte:239:32
+    at http://localhost:5173/@vite/client:46:60
+    at http://localhost:5173/@vite/client:213:11
+    at http://localhost:5173/@vite/client:186:58
+    at Array.forEach (<anonymous>)
+    at HMRClient.queueUpdate (http://localhost:5173/@vite/client:186:36)
+    at async Promise.all (index 0)
+    at async handleMessage (http://localhost:5173/@vite/client:927:7)
+[  203384ms] [ERROR] [vite] SyntaxError: The requested module '/src/paraglide/runtime.js' does not provide an export named 'languageTag' @ http://localhost:5173/@vite/client:881
+[  203384ms] [ERROR] [vite] Failed to reload /src/routes/+layout.svelte. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:881
+[  203388ms] TypeError: Cannot read properties of undefined (reading 'default')
+    at http://localhost:5173/src/routes/+layout.svelte:239:32
+    at http://localhost:5173/@vite/client:46:60
+    at http://localhost:5173/@vite/client:213:11
+    at http://localhost:5173/@vite/client:186:58
+    at Array.forEach (<anonymous>)
+    at HMRClient.queueUpdate (http://localhost:5173/@vite/client:186:36)
+    at async Promise.all (index 0)
+    at async handleMessage (http://localhost:5173/@vite/client:927:7)
+[  217777ms] [ERROR] [vite] SyntaxError: The requested module '/src/paraglide/runtime.js' does not provide an export named 'languageTag' @ http://localhost:5173/@vite/client:881
+[  217777ms] [ERROR] [vite] Failed to reload /src/routes/+layout.svelte. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:881
+[  217779ms] TypeError: Cannot read properties of undefined (reading 'default')
+    at http://localhost:5173/src/routes/+layout.svelte:239:32
+    at http://localhost:5173/@vite/client:46:60
+    at http://localhost:5173/@vite/client:213:11
+    at http://localhost:5173/@vite/client:186:58
+    at Array.forEach (<anonymous>)
+    at HMRClient.queueUpdate (http://localhost:5173/@vite/client:186:36)
+    at async Promise.all (index 0)
+    at async handleMessage (http://localhost:5173/@vite/client:927:7)
+[  217777ms] [ERROR] [vite] SyntaxError: The requested module '/src/paraglide/runtime.js' does not provide an export named 'languageTag' @ http://localhost:5173/@vite/client:881
+[  217777ms] [ERROR] [vite] Failed to reload /src/routes/+layout.svelte. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:881
+[  217779ms] TypeError: Cannot read properties of undefined (reading 'default')
+    at http://localhost:5173/src/routes/+layout.svelte:239:32
+    at http://localhost:5173/@vite/client:46:60
+    at http://localhost:5173/@vite/client:213:11
+    at http://localhost:5173/@vite/client:186:58
+    at Array.forEach (<anonymous>)
+    at HMRClient.queueUpdate (http://localhost:5173/@vite/client:186:36)
+    at async Promise.all (index 0)
+    at async handleMessage (http://localhost:5173/@vite/client:927:7)
+[  217777ms] [ERROR] [vite] SyntaxError: The requested module '/src/paraglide/runtime.js' does not provide an export named 'languageTag' @ http://localhost:5173/@vite/client:881
+[  217777ms] [ERROR] [vite] Failed to reload /src/routes/+layout.svelte. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:881
+[  217779ms] TypeError: Cannot read properties of undefined (reading 'default')
+    at http://localhost:5173/src/routes/+layout.svelte:239:32
+    at http://localhost:5173/@vite/client:46:60
+    at http://localhost:5173/@vite/client:213:11
+    at http://localhost:5173/@vite/client:186:58
+    at Array.forEach (<anonymous>)
+    at HMRClient.queueUpdate (http://localhost:5173/@vite/client:186:36)
+    at async Promise.all (index 0)
+    at async handleMessage (http://localhost:5173/@vite/client:927:7)
+[  217826ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/performa:0
+[  217840ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/favicon.ico:0
+[  219924ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/performa:0
+[  219934ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/favicon.ico:0
+[  297397ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/performa:0
+[  297449ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/favicon.ico:0
+[  299255ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/performa:0
+[  299270ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/favicon.ico:0
+[  334279ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/performa:0
+[  334307ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/favicon.ico:0
+[  336129ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/performa:0
+[  336143ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/favicon.ico:0
+[  389587ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/performa:0
+[  389616ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/favicon.ico:0
+[  389668ms] [ERROR] WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/@vite/client:1034
+[  390969ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/performa:0
+[  390982ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/favicon.ico:0

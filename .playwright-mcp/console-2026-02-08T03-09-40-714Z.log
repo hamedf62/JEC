@@ -1,0 +1,18 @@
+[  188526ms] [ERROR] Access to XMLHttpRequest at 'http://localhost:8000/api/analysis/Receivable/daily_breakdown' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/receivable:0
+[  188527ms] [ERROR] Failed to fetch receivable data: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=59775284:1647:19)
+    at Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=59775284:2233:41)
+    at async getAnalysis (http://localhost:5173/src/lib/api.ts?t=1770520249053:11:20)
+    at async Promise.all (index 0)
+    at async Module.track_reactivity_loss (http://localhost:5173/node_modules/.vite/deps/chunk-E2BZYA4H.js?v=59775284:1588:15)
+    at async http://localhost:5173/src/routes/receivable/+page.svelte:89:47 @ http://localhost:5173/src/routes/receivable/+page.svelte:156
+[  188527ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8000/api/analysis/Receivable/daily_breakdown:0
+[  409831ms] [ERROR] Access to XMLHttpRequest at 'http://localhost:8000/api/analysis/Receivable/daily_breakdown' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/receivable:0
+[  409832ms] [ERROR] Failed to fetch receivable data: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=59775284:1647:19)
+    at Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=59775284:2233:41)
+    at async getAnalysis (http://localhost:5173/src/lib/api.ts?t=1770520249053:11:20)
+    at async Promise.all (index 0)
+    at async Module.track_reactivity_loss (http://localhost:5173/node_modules/.vite/deps/chunk-E2BZYA4H.js?v=59775284:1588:15)
+    at async http://localhost:5173/src/routes/receivable/+page.svelte:89:47 @ http://localhost:5173/src/routes/receivable/+page.svelte:156
+[  409832ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8000/api/analysis/Receivable/daily_breakdown:0
