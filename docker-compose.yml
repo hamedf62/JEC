@@ -1,26 +1,5 @@
 services:
 
-  # ─── Redis Cache (internal only) ──────────────────────────────────────────
-  redis:
-    image: redis:7-alpine
-    container_name: jec-redis
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - jec-internal
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   # ─── FastAPI Backend ───────────────────────────────────────────────────────
   backend:
     image: ${IMAGE_BACKEND:-ghcr.io/hamedf62/jec/backend:latest}
@@ -29,14 +8,11 @@ services:
     volumes:
       - ./backend/data:/app/data:rw
     environment:
-      REDIS_HOST: redis
+      REDIS_HOST: redis-shared
       REDIS_PORT: 6379
       REDIS_DB: 0
       PYTHONUNBUFFERED: 1
       PYTHONPATH: /app
-    depends_on:
-      redis:
-        condition: service_healthy
     healthcheck:
       test:
         - "CMD"
@@ -49,24 +25,7 @@ services:
       start_period: 30s
     networks:
       - jec-internal
-      - traefik-proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=stats_ai_traefik"
-      # ── HTTPS router ──────────────────────────────────────────────────────
-      - "traefik.http.routers.jec-backend.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`))"
-      - "traefik.http.routers.jec-backend.entrypoints=websecure"
-      - "traefik.http.routers.jec-backend.tls=true"
-      - "traefik.http.routers.jec-backend.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.jec-backend.service=jec-backend-svc"
-      - "traefik.http.routers.jec-backend.priority=100"
-      # ── HTTP → HTTPS redirect ──────────────────────────────────────────────
-      - "traefik.http.routers.jec-backend-http.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`))"
-      - "traefik.http.routers.jec-backend-http.entrypoints=web"
-      - "traefik.http.routers.jec-backend-http.middlewares=https-redirect"
-      - "traefik.http.routers.jec-backend-http.priority=100"
-      # ── Service definition ─────────────────────────────────────────────────
-      - "traefik.http.services.jec-backend-svc.loadbalancer.server.port=8000"
+      - shared-net
     logging:
       driver: "json-file"
       options:
@@ -84,7 +43,7 @@ services:
     container_name: jec-frontend
     restart: unless-stopped
     environment:
-      ORIGIN: https://${DOMAIN}
+      ORIGIN: https://${DOMAIN:-jec.dataplay.dev}
       PORT: "3000"
       HOST: "0.0.0.0"
     depends_on:
@@ -103,24 +62,7 @@ services:
       start_period: 40s
     networks:
       - jec-internal
-      - traefik-proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=stats_ai_traefik"
-      # ── HTTPS router ──────────────────────────────────────────────────────
-      - "traefik.http.routers.jec-frontend.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.jec-frontend.entrypoints=websecure"
-      - "traefik.http.routers.jec-frontend.tls=true"
-      - "traefik.http.routers.jec-frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.jec-frontend.service=jec-frontend-svc"
-      - "traefik.http.routers.jec-frontend.priority=10"
-      # ── HTTP → HTTPS redirect ──────────────────────────────────────────────
-      - "traefik.http.routers.jec-frontend-http.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.jec-frontend-http.entrypoints=web"
-      - "traefik.http.routers.jec-frontend-http.middlewares=https-redirect"
-      - "traefik.http.routers.jec-frontend-http.priority=10"
-      # ── Service definition ─────────────────────────────────────────────────
-      - "traefik.http.services.jec-frontend-svc.loadbalancer.server.port=3000"
+      - shared-net
     logging:
       driver: "json-file"
       options:
@@ -132,15 +74,11 @@ services:
           memory: 512M
           cpus: "0.5"
 
-volumes:
-  redis_data:
-    driver: local
-
 networks:
   # Internal network for JEC service-to-service communication
   jec-internal:
     driver: bridge
-  # External Traefik network shared across all projects on this server
-  traefik-proxy:
-    name: stats_ai_traefik
+  # Shared network — nginx-shared, redis-shared, postgres-shared live here
+  shared-net:
+    name: shared-net
     external: true
