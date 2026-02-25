@@ -31,8 +31,7 @@
     "axios": "^1.13.4",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.19",
-    "lucide-svelte": "^0.474.0",
-    "svelte-chartjs": "^3.1.5"
+    "lucide-svelte": "^0.474.0"
   },
   "pnpm": {
     "peerDependencyRules": {
