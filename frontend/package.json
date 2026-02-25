@@ -15,6 +15,7 @@
     "@inlang/cli": "^3.1.4",
     "@inlang/paraglide-js": "^2.10.0",
     "@sveltejs/adapter-auto": "^4.0.0",
+    "@sveltejs/adapter-node": "^5.0.0",
     "@sveltejs/kit": "^2.50.2",
     "@sveltejs/vite-plugin-svelte": "^5.1.1",
     "@tailwindcss/vite": "^4.1.18",

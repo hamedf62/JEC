@@ -9,14 +9,13 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (allow lockfile updates for new packages)
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Build the application
-# Note: For production, consider switching to @sveltejs/adapter-node in svelte.config.js
 RUN pnpm run build
 
 # Stage 2: Runtime
@@ -24,14 +23,14 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install pnpm for running
-RUN npm install -g pnpm
+# Copy only the built output (adapter-node bundles everything)
+COPY --from=builder /app/build ./build
 
-# Copy the built app and dependencies
-COPY --from=builder /app /app
+# Expose SvelteKit adapter-node default port
+EXPOSE 3000
 
-# Expose SvelteKit port (default for preview/node)
-EXPOSE 4173
+# Set default port and host for adapter-node
+ENV PORT=3000
+ENV HOST=0.0.0.0
 
-# Command to run (using preview for now as adapter-auto might not output a direct build/index.js without adapter-node)
-CMD ["pnpm", "run", "preview", "--host", "0.0.0.0"]
+CMD ["node", "build"]
