@@ -9,7 +9,7 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,12 +94,9 @@ services:
       test:
         - "CMD-SHELL"
         - >
-          node -e "
-          const http = require('http');
-          http.get('http://localhost:3000/', r => {
+          node -e " const http = require('http'); http.get('http://localhost:3000/', r => {
             process.exit(r.statusCode < 500 ? 0 : 1);
-          }).on('error', () => process.exit(1));
-          "
+          }).on('error', () => process.exit(1)); "
       interval: 30s
       timeout: 10s
       retries: 3
