@@ -7,81 +7,152 @@
 
 :root {
     font-family: var(--font-sans);
+    --jec-bg: #f1f5f9;
+    --jec-surface: #ffffff;
+    --jec-line: #dbe4f0;
+    --jec-text: #0f172a;
+    --jec-muted: #64748b;
+    --jec-primary: #0f766e;
+    --jec-primary-soft: #ccfbf1;
+    --jec-accent: #0369a1;
 }
 
-/* Vazirmatn Font Family */
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn[wght].woff2') format('woff2-variations');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn[wght].woff2") format("woff2-variations");
     font-weight: 100 900;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-Thin.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-Thin.woff2") format("woff2");
     font-weight: 100;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-ExtraLight.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-ExtraLight.woff2") format("woff2");
     font-weight: 200;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-Light.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-Light.woff2") format("woff2");
     font-weight: 300;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-Regular.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-Regular.woff2") format("woff2");
     font-weight: 400;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-Medium.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-Medium.woff2") format("woff2");
     font-weight: 500;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-SemiBold.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-SemiBold.woff2") format("woff2");
     font-weight: 600;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-Bold.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-Bold.woff2") format("woff2");
     font-weight: 700;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-ExtraBold.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-ExtraBold.woff2") format("woff2");
     font-weight: 800;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Vazirmatn';
-    src: url('/fonts/Vazirmatn-Black.woff2') format('woff2');
+    font-family: "Vazirmatn";
+    src: url("/fonts/Vazirmatn-Black.woff2") format("woff2");
     font-weight: 900;
     font-display: swap;
 }
 
-
-
 @plugin "daisyui" {
-    themes: light --default, dark, cupcake;
+    themes: light --default;
+}
+
+:global(html),
+:global(body) {
+    min-height: 100%;
+    color: var(--jec-text);
+    background:
+        radial-gradient(circle at 10% 10%, #dff3f0 0%, transparent 35%),
+        radial-gradient(circle at 90% 0%, #dbeafe 0%, transparent 30%),
+        linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+:global(*) {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 transparent;
+}
+
+:global(.card) {
+    border: 1px solid var(--jec-line);
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+    box-shadow: 0 12px 40px -28px #0f172a66;
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+:global(.card:hover) {
+    transform: translateY(-2px);
+    border-color: #bfd1e6;
+    box-shadow: 0 20px 40px -30px #0f172a80;
+}
+
+:global(.btn-primary) {
+    border-color: #0f766e;
+    background: linear-gradient(135deg, #0f766e 0%, #0f9f92 100%);
+    color: #f8fafc;
+}
+
+:global(.btn-outline) {
+    border-color: var(--jec-line);
+}
+
+:global(.table thead) {
+    background: #f4f8fc;
+}
+
+:global(.table tbody tr:hover) {
+    background: #f8fbff;
+}
+
+:global(.dashboard-shell) {
+    backdrop-filter: blur(6px);
+}
+
+:global(.fade-up) {
+    animation: fadeUp 450ms ease both;
+}
+
+@keyframes fadeUp {
+    from {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
